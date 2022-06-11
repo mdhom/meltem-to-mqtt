@@ -49,7 +49,7 @@ class Meltem2MQTT:
     def __init__(self) -> None:
         mqtt = None  # type: MqttClient
         loop = None  # type: asyncio.AbstractEventLoop
-        bus = None   # type: minimalmodbus.Instrument
+        bus = None  # type: minimalmodbus.Instrument
         self.lock = threading.Lock()
 
     def __add_from_config(self, cmdArgs: dict, config: dict, name: str):
@@ -112,11 +112,11 @@ class Meltem2MQTT:
             self.mqtt = MqttClient(LOGGER, self.loop, args.mqttbroker, args.mqttport, args.mqttclientid, args.mqttkeepalive, args.mqttusername, args.mqttpassword, args.mqttbasetopic)
             await self.mqtt.start()
             self.mqtt.subscribe_to("/mode/set", self.__on_set_mode)
-            
-            self.bus = minimalmodbus.Instrument('/dev/ttyUSB0', 1)
+
+            self.bus = minimalmodbus.Instrument("/dev/ttyUSB0", 1)
             self.bus.serial.parity = serial.PARITY_EVEN
-            print(f'address={self.bus.address}')
-            print(f'mode={self.bus.mode}')
+            print(f"address={self.bus.address}")
+            print(f"mode={self.bus.mode}")
 
             last_data_json = ""
             last_cycle = 0.0
@@ -133,35 +133,35 @@ class Meltem2MQTT:
                     self.lock.acquire()
                     try:
                         data = {
-                            'mode':             self.__read_mode().name,
-                            'error':            self.__read_uint8(41016),
-                            'frost_protection_active': self.__read_uint8(41018),
-                            'temp_outdoor_out': self.__read_float(41000), # Fortlufttemperatur
-                            'temp_outdoor_in':  self.__read_float(41002), # Außenlufttemperatur
-                            'temp_room_out':    self.__read_float(41004), # Ablufttemperatur
-                            'temp_room_in':     self.__read_float(41009), # Zulufttemperatur
-                            'humidity_out':     self.__read_uint16(41006),
-                            'humidity_in':      self.__read_uint16(41011),
-                            'co2_out':          self.__read_uint16(41007),
-                            'voc_in':           self.__read_uint8(41013),
-                            'throughput_out':   self.__read_uint8(41020),
-                            'throughput_in':    self.__read_uint8(41021),
-                            'filter_change_needed':     self.__read_uint8(41017),
-                            'filter_time_remaining':    self.__read_uint16(41027),
+                            "mode": self.__read_mode().name,
+                            "error": self.__read_uint8(41016),
+                            "frost_protection_active": self.__read_uint8(41018),
+                            "temp_outdoor_out": self.__read_float(41000),  # Fortlufttemperatur
+                            "temp_outdoor_in": self.__read_float(41002),  # Außenlufttemperatur
+                            "temp_room_out": self.__read_float(41004),  # Ablufttemperatur
+                            "temp_room_in": self.__read_float(41009),  # Zulufttemperatur
+                            "humidity_out": self.__read_uint16(41006),
+                            "humidity_in": self.__read_uint16(41011),
+                            "co2_out": self.__read_uint16(41007),
+                            "voc_in": self.__read_uint8(41013),
+                            "throughput_out": self.__read_uint8(41020),
+                            "throughput_in": self.__read_uint8(41021),
+                            "filter_change_needed": self.__read_uint8(41017),
+                            "filter_time_remaining": self.__read_uint16(41027),
                             # 'operating_hours_device':   self.__read_uint32(41030),
                             # 'operating_hours_motors':   self.__read_uint32(41032),
                         }
                         data_json = json.dumps(data)
                         if data_json != last_data_json:
                             # print(data)
-                            self.mqtt.publish(f'live', data)
+                            self.mqtt.publish(f"live", data)
                             last_data_json = data_json
                     finally:
                         self.lock.release()
 
                 except minimalmodbus.NoResponseError:
-                    LOGGER.error('no response on ModBus')
-                
+                    LOGGER.error("no response on ModBus")
+
         except KeyboardInterrupt:
             pass  # do nothing, close requested
         except CancelledError:
@@ -171,81 +171,53 @@ class Meltem2MQTT:
         finally:
             LOGGER.info(f"shutdown requested")
             await self.mqtt.stop()
-            
+
     def __on_set_mode(self, client, userdata, msg):
-        requested_mode = getattr(msg.payload, 'mode', None)
+        requested_mode = getattr(msg.payload, "mode", None)
         if requested_mode == None:
             LOGGER.error('no value for "requested_mode" provided')
             return
 
         if requested_mode == MeltemMode.off.name:
-            write_data = {
-                41120: 1, 
-                41132: 0
-            }
+            write_data = {41120: 1, 41132: 0}
         elif requested_mode == MeltemMode.manual_balanced.name:
-            throughput = getattr(msg.payload, 'throughput')
+            throughput = getattr(msg.payload, "throughput")
             if throughput is None:
                 LOGGER.error('no value for "throughput" provided')
                 return
             if throughput < 0 or throughput > 100:
-                LOGGER.error(f'invalid throughput provided ({throughput}). Throughput must be between 0 and 100, unit is m³/h.')
+                LOGGER.error(f"invalid throughput provided ({throughput}). Throughput must be between 0 and 100, unit is m³/h.")
                 return
             value = throughput / 100.0 * 200.0  # convert to 0-200 range needed in protocol
-            write_data = {
-                41120: 3,
-                41121: value,
-                41132: 0
-            }
+            write_data = {41120: 3, 41121: value, 41132: 0}
         elif requested_mode == MeltemMode.intensive.name:
-            write_data =  {
-                41120: 3, 
-                41121: 227, 
-                41132: 0
-            }
+            write_data = {41120: 3, 41121: 227, 41132: 0}
         elif requested_mode == MeltemMode.humidity_controlled.name:
-            write_data =  {
-                41120: 2, 
-                41121: 112, 
-                41132: 0
-            }
+            write_data = {41120: 2, 41121: 112, 41132: 0}
         elif requested_mode == MeltemMode.co2_controlled.name:
-            write_data =  {
-                41120: 2, 
-                41121: 144, 
-                41132: 0
-            }
+            write_data = {41120: 2, 41121: 144, 41132: 0}
         elif requested_mode == MeltemMode.automatic.name:
-            write_data =  {
-                41120: 2, 
-                41121: 16, 
-                41132: 0
-            }
+            write_data = {41120: 2, 41121: 16, 41132: 0}
         elif requested_mode == MeltemMode.manual_unbalanced.name:
-            throughput_in = getattr(msg.payload, 'throughput_in')
-            throughput_out = getattr(msg.payload, 'throughput_out')
+            throughput_in = getattr(msg.payload, "throughput_in")
+            throughput_out = getattr(msg.payload, "throughput_out")
             if throughput_in is None:
-                LOGGER.error('no throughput_in provided')
+                LOGGER.error("no throughput_in provided")
                 return
             if throughput_in < 0 or throughput_in > 100:
-                LOGGER.error(f'invalid throughput_in provided ({throughput_in}). Throughput must be between 0 and 100, unit is m³/h.')
+                LOGGER.error(f"invalid throughput_in provided ({throughput_in}). Throughput must be between 0 and 100, unit is m³/h.")
                 return
             if throughput_out is None:
-                LOGGER.error('no throughput_out provided')
+                LOGGER.error("no throughput_out provided")
                 return
             if throughput_out < 0 or throughput_out > 100:
-                LOGGER.error(f'invalid throughput_out provided ({throughput_out}). Throughput must be between 0 and 100, unit is m³/h.')
+                LOGGER.error(f"invalid throughput_out provided ({throughput_out}). Throughput must be between 0 and 100, unit is m³/h.")
                 return
 
             value_in = throughput_in / 100.0 * 200.0  # convert to 0-200 range needed in protocol
             value_out = throughput_out / 100.0 * 200.0  # convert to 0-200 range needed in protocol
 
-            write_data =  {
-                41120: 4, 
-                41121: value_in, 
-                41122: value_out, 
-                41132: 0
-            }
+            write_data = {41120: 4, 41121: value_in, 41122: value_out, 41132: 0}
         else:
             LOGGER.error('invalid value for "requested_mode" provided')
             return
@@ -254,7 +226,7 @@ class Meltem2MQTT:
 
         try:
             for key, value in write_data.items():
-                self.bus.write_register(key, value, functioncode=6)      
+                self.bus.write_register(key, value, functioncode=6)
         finally:
             self.lock.release()
 
@@ -271,7 +243,7 @@ class Meltem2MQTT:
             elif register2 >= 0 and register2 <= 200:
                 return MeltemMode.manual_balanced
             else:
-                LOGGER.error(f'inconsistent register2 value {register2}')
+                LOGGER.error(f"inconsistent register2 value {register2}")
                 return MeltemMode.inconsistent
         elif register1 == 2:
             register2 = self.bus.read_register(41121)
@@ -282,20 +254,20 @@ class Meltem2MQTT:
             elif register2 == 16:
                 return MeltemMode.automatic
             else:
-                LOGGER.error(f'inconsistent register2 value {register2}')
+                LOGGER.error(f"inconsistent register2 value {register2}")
                 return MeltemMode.inconsistent
         else:
             # LOGGER.error(f'inconsistent register1 value {register1}')
             return MeltemMode.inconsistent
 
-    def __read_uint8(self, register_address:int):
+    def __read_uint8(self, register_address: int):
         return self.bus.read_register(register_address)
-        
-    def __read_uint16(self, register_address:int):
+
+    def __read_uint16(self, register_address: int):
         return self.bus.read_register(register_address)
-        
-    def __read_uint32(self, register_address:int):
+
+    def __read_uint32(self, register_address: int):
         return self.bus.read_long(register_address)
-        
-    def __read_float(self, register_address:int):
+
+    def __read_float(self, register_address: int):
         return self.bus.read_float(register_address, byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP)
