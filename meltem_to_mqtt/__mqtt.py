@@ -41,7 +41,7 @@ class MqttClient:
         self.stop_requested = False
         self.run_task = None
         self.is_started = False
-        client_id = clientId if clientId is not None else "e3dc-to-mqtt"
+        client_id = clientId if clientId is not None else "meltem-to-mqtt"
         self.logger.debug(f"using client_id {client_id}")
         self.client = mqtt.Client(client_id, protocol=mqtt.MQTTv5)
         self.connect_event = asyncio.Event()

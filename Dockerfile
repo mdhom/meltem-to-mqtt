@@ -19,4 +19,4 @@ ARG RELEASE_NAME
 ENV RELEASE=$RELEASE_NAME
 RUN echo 'Release: ' ${RELEASE}
 
-CMD e3dc-to-mqtt --releaseName ${RELEASE} --mqtt-broker ${MQTT_BROKER} ${ADDITIONAL_PARAMETERS}
+CMD meltem-to-mqtt --releaseName ${RELEASE} --mqtt-broker ${MQTT_BROKER} ${ADDITIONAL_PARAMETERS}
