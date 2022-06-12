@@ -118,6 +118,9 @@ class Meltem2MQTT:
             print(f"address={self.bus.address}")
             print(f"mode={self.bus.mode}")
 
+            # self.bus.write_register(42003,  500, functioncode=6)
+            # print(self.bus.read_register(42003))
+
             last_data_json = ""
             last_cycle = 0.0
             while True:
@@ -132,6 +135,9 @@ class Meltem2MQTT:
 
                     self.lock.acquire()
                     try:
+                        # print(f'CO2start={self.__read_uint8(42003)}')
+                        # print(f'CO2min={self.__read_uint8(42004)}')
+                        # print(f'CO2max={self.__read_uint8(42005)}')
                         data = {
                             "mode": self.__read_mode().name,
                             "error": self.__read_uint8(41016),
@@ -151,6 +157,11 @@ class Meltem2MQTT:
                             # 'operating_hours_device':   self.__read_uint32(41030),
                             # 'operating_hours_motors':   self.__read_uint32(41032),
                         }
+
+                        temperature_difference_inside_outside = abs(data['temp_room_out'] - data['temp_outdoor_in'])
+                        temperature_difference_inlet = abs(data['temp_outdoor_in'] - data['temp_room_in'])
+                        data['heatexchanger_efficiency'] = temperature_difference_inlet / temperature_difference_inside_outside * 100.0
+                        
                         data_json = json.dumps(data)
                         if data_json != last_data_json:
                             # print(data)
