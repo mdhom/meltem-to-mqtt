@@ -197,7 +197,7 @@ class Meltem2MQTT:
         if value == None:
             LOGGER.error('no value for "value" provided')
             return
-            
+
         self.lock.acquire()
         try:
             self.bus.write_register(address, value, functioncode=6)
@@ -213,7 +213,7 @@ class Meltem2MQTT:
         if address == None:
             LOGGER.error('no value for "address" provided')
             return
-            
+
         self.lock.acquire()
         try:
             value = self.bus.read_register(address)
