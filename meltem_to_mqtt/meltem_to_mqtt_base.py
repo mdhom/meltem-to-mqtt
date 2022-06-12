@@ -112,6 +112,8 @@ class Meltem2MQTT:
             self.mqtt = MqttClient(LOGGER, self.loop, args.mqttbroker, args.mqttport, args.mqttclientid, args.mqttkeepalive, args.mqttusername, args.mqttpassword, args.mqttbasetopic)
             await self.mqtt.start()
             self.mqtt.subscribe_to("/mode/set", self.__on_set_mode)
+            self.mqtt.subscribe_to("/register/write", self.__on_write_register)
+            self.mqtt.subscribe_to("/register/read", self.__on_read_register)
 
             self.bus = minimalmodbus.Instrument("/dev/ttyUSB0", 1)
             self.bus.serial.parity = serial.PARITY_EVEN
@@ -159,8 +161,9 @@ class Meltem2MQTT:
                         }
 
                         temperature_difference_inside_outside = abs(data["temp_room_out"] - data["temp_outdoor_in"])
-                        temperature_difference_inlet = abs(data["temp_outdoor_in"] - data["temp_room_in"])
-                        data["heatexchanger_efficiency"] = temperature_difference_inlet / temperature_difference_inside_outside * 100.0
+                        if temperature_difference_inside_outside != 0:
+                            temperature_difference_inlet = abs(data["temp_outdoor_in"] - data["temp_room_in"])
+                            data["heatexchanger_efficiency"] = temperature_difference_inlet / temperature_difference_inside_outside * 100.0
 
                         data_json = json.dumps(data)
                         if data_json != last_data_json:
@@ -172,6 +175,8 @@ class Meltem2MQTT:
 
                 except minimalmodbus.NoResponseError:
                     LOGGER.error("no response on ModBus")
+                except minimalmodbus.InvalidResponseError:
+                    LOGGER.error("invalid response on ModBus")
 
         except KeyboardInterrupt:
             pass  # do nothing, close requested
@@ -182,6 +187,44 @@ class Meltem2MQTT:
         finally:
             LOGGER.info(f"shutdown requested")
             await self.mqtt.stop()
+
+    def __on_write_register(self, client, userdata, msg):
+        address = getattr(msg.payload, "address", None)
+        if address == None:
+            LOGGER.error('no value for "address" provided')
+            return
+        value = getattr(msg.payload, "value", None)
+        if value == None:
+            LOGGER.error('no value for "value" provided')
+            return
+            
+        self.lock.acquire()
+        try:
+            self.bus.write_register(address, value, functioncode=6)
+        except minimalmodbus.NoResponseError:
+            LOGGER.error("no response on ModBus")
+        except minimalmodbus.InvalidResponseError:
+            LOGGER.error("invalid response on ModBus")
+        finally:
+            self.lock.release()
+
+    def __on_read_register(self, client, userdata, msg):
+        address = getattr(msg.payload, "address", None)
+        if address == None:
+            LOGGER.error('no value for "address" provided')
+            return
+            
+        self.lock.acquire()
+        try:
+            value = self.bus.read_register(address)
+        except minimalmodbus.NoResponseError:
+            LOGGER.error("no response on ModBus")
+        except minimalmodbus.InvalidResponseError:
+            LOGGER.error("invalid response on ModBus")
+        finally:
+            self.lock.release()
+
+        self.mqtt.publish(f"register/{address}", value)
 
     def __on_set_mode(self, client, userdata, msg):
         requested_mode = getattr(msg.payload, "mode", None)
