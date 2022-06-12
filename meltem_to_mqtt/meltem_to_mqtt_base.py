@@ -158,10 +158,10 @@ class Meltem2MQTT:
                             # 'operating_hours_motors':   self.__read_uint32(41032),
                         }
 
-                        temperature_difference_inside_outside = abs(data['temp_room_out'] - data['temp_outdoor_in'])
-                        temperature_difference_inlet = abs(data['temp_outdoor_in'] - data['temp_room_in'])
-                        data['heatexchanger_efficiency'] = temperature_difference_inlet / temperature_difference_inside_outside * 100.0
-                        
+                        temperature_difference_inside_outside = abs(data["temp_room_out"] - data["temp_outdoor_in"])
+                        temperature_difference_inlet = abs(data["temp_outdoor_in"] - data["temp_room_in"])
+                        data["heatexchanger_efficiency"] = temperature_difference_inlet / temperature_difference_inside_outside * 100.0
+
                         data_json = json.dumps(data)
                         if data_json != last_data_json:
                             # print(data)
